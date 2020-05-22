@@ -47,7 +47,7 @@ def play(update, context):
         quote=True)
     context.bot.send_chat_action(chat_id, action=ChatAction.TYPING)
     sleep(1)
-    update.message.reply_text('PS: tap /cancel or type `quit` anytime to exit.',
+    update.message.reply_text('PS: tap /cancel or type `quit` anytime to exit.\nAnd if something doesn\'t go right, try /help',
                 parse_mode=ParseMode.MARKDOWN)
 
 
@@ -162,6 +162,20 @@ def end_game(update, context):
     '''
     pass
 
+def end_game2(update, context):
+
+    logger.info(f"{update.effective_chat.first_name} required more help")
+
+
+    update.message.reply_text('To play again, tap /cancel and then /play.\n'
+            'Ik weird bug, but ever tried finding program flow errors in a 500 line program\n'
+            'First time for me, so... I can\'t figure out where the problem lies.',
+             reply_markup=ReplyKeyboardRemove())
+
+
+
+
+
 def reset_board():
     '''
     global context.user_data['GAME']
@@ -194,9 +208,10 @@ def error(update, context):
     update.message.reply_text("An Error Occured. Please inform my creator or try restarting the game by tapping /cancel and then /play")
 
 def need_help(update, context):
-    update.message.reply_text('Side Note from dev: There is a low probability, but... if you notice your gameboard being modified... that means someone else is also using the playing.\n'
+    update.message.reply_text('Side Note from dev:  There is a low probability, but... if you notice your gameboard not responding or sending lost/tie messages early or not able to play... that means someone else is also using the playing.\n'
                 "Either wait, message me (through feedback? your choice) or send bounty hunters to terminate the mobile phones of whoever is using this bot. Trust me, Bountry hunters option is better.\n\n"
-                "Why is this happening you ask? Well because i violated the rule of programming that NEVER USE GLOBAL VARIABLES <s>(and python-telegram docs have a steep learning curve)</s>.",
+                "Why is this happening you ask? Well because i violated the rule of programming that NEVER USE GLOBAL VARIABLES <s>(and python-telegram docs have a steep learning curve)</s>.\n\n"
+                "Try /cannot_play_again if that is your problem",
                 parse_mode=ParseMode.HTML )
 # -------------CORE GAME FUNCTIONS-----------
 # Checks the winning conditions function
@@ -491,7 +506,7 @@ def computerPlays(game_board ):
 
 def main():
     logger.info("Logging Started")
-    updater = Updater(token='removed', use_context=True)
+    updater = Updater(token='REMOVED', use_context=True)
     dispatcher = updater.dispatcher
 
     conv_handler = ConversationHandler(
@@ -526,6 +541,7 @@ def main():
     )
     dispatcher.add_handler(feedback_handler)
     dispatcher.add_handler(CommandHandler('help', need_help))
+    dispatcher.add_handler(CommandHandler('cannot_play_again', end_game2))
     updater.start_polling()
     updater.idle()
 
