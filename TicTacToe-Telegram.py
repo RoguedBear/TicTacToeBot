@@ -16,7 +16,7 @@ master_game_board = {'1': '‌1'.ljust(5), '2': '2'.center(4), '3': '3'.center(4
               '4': '4'.center(4), '5': '5'.center(4), '6': '6'.center(4),
               '7': '7'.center(4), '8': '8'.center(4), '9': '9'.center(4)}
 #game_board = copy.copy(master_game_board)
-MY_CHAT_ID = 'removed'
+MY_CHAT_ID = removed
 
 # ENable Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 def play(update, context):
-    global game_board
-    game_board = copy.copy(master_game_board)
+
+    context.user_data['GAME'] = copy.copy(master_game_board)
     global chat_id
     chat_id = update.message.from_user.id
     if chat_id != MY_CHAT_ID:
@@ -49,6 +49,7 @@ def play(update, context):
     sleep(1)
     update.message.reply_text('PS: tap /cancel or type `quit` anytime to exit.',
                 parse_mode=ParseMode.MARKDOWN)
+
 
     return 'GAME_INTRO'
 
@@ -77,14 +78,14 @@ def game_intro(update, context):
 def displayBoard(board):
     '''
     Prints the gameboard
-    INPUT: game_board: takes the board data structure to print it out
+    INPUT: board: takes the board data structure to print it out
     '''
     board= f"""
-‌‌{game_board['1']} | {game_board['2']} | {game_board['3']}
+‌‌{board['1']} | {board['2']} | {board['3']}
 -----------------
-{game_board['4']} | {game_board['5']} | {game_board['6']}
+{board['4']} | {board['5']} | {board['6']}
 {'-'.center(len(' 1  |  2  |  3   '), '-')}
-{game_board['7']} | {game_board['8']} | {game_board['9']}
+{board['7']} | {board['8']} | {board['9']}
 
 """
 
@@ -96,7 +97,7 @@ def displayBoard_inChat(update, context, start=True):
         update.message.reply_text('Starting Game...')
     context.bot.send_chat_action(chat_id, action=ChatAction.TYPING)
 
-    board = displayBoard(game_board)
+    board = displayBoard(context.user_data['GAME'])
     update.message.reply_text(board,
         reply_markup=ReplyKeyboardMarkup([['Play My Move']],
                         resize_keyboard=True))
@@ -105,7 +106,7 @@ def displayBoard_inChat(update, context, start=True):
     return 'CHECK_END_STATE'
 
 def get_input(update, context):
-    available_moves = [i if game_board[i] not in [X, O] else 0 for i in game_board.keys()]
+    available_moves = [i if context.user_data['GAME'][i] not in [X, O] else 0 for i in context.user_data['GAME'].keys()]
     move = update.message.text
     reply_keyboard = [['1','2','3'],
                       ['4','5','6'],
@@ -113,7 +114,7 @@ def get_input(update, context):
     for row in range(3):
         for column in range(3):
             if reply_keyboard[row][column] not in available_moves:
-                reply_keyboard[row][column] = 'X' if game_board[reply_keyboard[row][column]] in X else 'O'
+                reply_keyboard[row][column] = 'X' if context.user_data['GAME'][reply_keyboard[row][column]] in X else 'O'
 
     update.message.reply_text(
         'What is your move?',
@@ -148,6 +149,7 @@ def cancel2(update, context):
     return ConversationHandler.END
 
 def end_game(update, context):
+    '''
     logger.info("Game Ends")
     sleep(5)
     update.message.reply_text('Bye!',
@@ -157,13 +159,17 @@ def end_game(update, context):
             'First time for me, so... I can\'t figure out where the problem lies.')
     update.message.reply_text('Bye!')
     reset_board()
+    '''
+    pass
 
 def reset_board():
-    global game_board
-    game_board = {'1': '‌1'.ljust(6), '2': '2'.center(4), '3': '3'.center(4),
+    '''
+    global context.user_data['GAME']
+    context.user_data['GAME'] = {'1': '‌1'.ljust(6), '2': '2'.center(4), '3': '3'.center(4),
                   '4': '4'.center(4), '5': '5'.center(4), '6': '6'.center(4),
                   '7': '7'.center(4), '8': '8'.center(4), '9': '9'.center(4)}
-
+    '''
+    pass
 def feedback(update, context):
     logger.info(f"{update.effective_chat.first_name} is sending feedback")
     update.message.reply_text("You may enter your feedback if you have one\. \n"
@@ -177,7 +183,7 @@ def send_feedback(update, context):
 
 
     context.bot.send_message(MY_CHAT_ID,
-        f"\#Feedback from: {update.effective_chat.first_name} @{update.effective_chat.username}\n`{update.message.text}`",
+        f"#Feedback from: {update.effective_chat.first_name} @{update.effective_chat.username}\n`{update.message.text}`",
         parse_mode=ParseMode.MARKDOWN)
     update.message.reply_text('Feedback sent!')
 
@@ -186,6 +192,12 @@ def send_feedback(update, context):
 def error(update, context):
     logger.info('Update "%s" caused error "%s"', update, context.error)
     update.message.reply_text("An Error Occured. Please inform my creator or try restarting the game by tapping /cancel and then /play")
+
+def need_help(update, context):
+    update.message.reply_text('Side Note from dev: There is a low probability, but... if you notice your gameboard being modified... that means someone else is also using the playing.\n'
+                "Either wait, message me (through feedback? your choice) or send bounty hunters to terminate the mobile phones of whoever is using this bot. Trust me, Bountry hunters option is better.\n\n"
+                "Why is this happening you ask? Well because i violated the rule of programming that NEVER USE GLOBAL VARIABLES <s>(and python-telegram docs have a steep learning curve)</s>.",
+                parse_mode=ParseMode.HTML )
 # -------------CORE GAME FUNCTIONS-----------
 # Checks the winning conditions function
 def hasWon(game_board):
@@ -229,12 +241,13 @@ def hasWon(game_board):
 
 # Has won's handler:
 def hasWon_handler(update, context, tie=False):
-    match_state = hasWon(game_board)
+    chat_id_local = update.message.chat.id
+    match_state = hasWon(context.user_data['GAME'])
 
     if match_state is not None:
         update.message.reply_text("🥁🥁🥁🥁🥁🥁🥁🥁")
         sleep(1.2)
-    for i in game_board.values():
+    for i in context.user_data['GAME'].values():
         if i not in [X, O]:
             break
     else:
@@ -248,10 +261,10 @@ def hasWon_handler(update, context, tie=False):
 
         update.message.reply_text("It's a tie!")
         update.message.reply_text(f"Well played {update.effective_chat.first_name}!")
-        context.bot.send_chat_action(update.message.chat.id, action=ChatAction.TYPING)
+        context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(random.random()*1.5)
         update.message.reply_text("But I'm blood thirsty for another round.")
-        context.bot.send_chat_action(update.message.chat.id, action=ChatAction.TYPING)
+        context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(1.2)
         update.message.reply_text("UNTIL I BEAT YOU☠👺")
         random_sticker_list = [
@@ -269,11 +282,11 @@ def hasWon_handler(update, context, tie=False):
 
         ]
         sleep(0.3)
-        context.bot.send_sticker(chat_id, random.choice(random_sticker_list))
-        context.bot.send_chat_action(update.message.chat.id, action=ChatAction.TYPING)
+        context.bot.send_sticker(chat_id_local, random.choice(random_sticker_list))
+        context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(random.uniform(1,2.5))
         update.message.reply_text('You know actually,')
-        context.bot.send_chat_action(update.message.chat.id, action=ChatAction.TYPING)
+        context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(random.random()*2)
         update.message.reply_text("No, I wouldn't be doing that. My programming restricts me,\n"
             'From harming precious hoomans like you 🙂')
@@ -309,11 +322,12 @@ def hasWon_handler(update, context, tie=False):
 
 
 def play_move(update, context):
-    available_moves = [i if game_board[i] not in [X, O] else 0 for i in game_board.keys()]
+    chat_id_local = update.message.chat.id
+    available_moves = [i if context.user_data['GAME'][i] not in [X, O] else 0 for i in context.user_data['GAME'].keys()]
     move = update.message.text
 
     # Tie cheker
-    for j in game_board.values():
+    for j in context.user_data['GAME'].values():
         if j not in [X, O]:
             break
     else:
@@ -321,7 +335,7 @@ def play_move(update, context):
 
     while True:
         if move in available_moves:
-            game_board[move] = human
+            context.user_data['GAME'][move] = human
             break
         else:
             update.message.reply_text("Not a valid move. Try again.",
@@ -339,10 +353,10 @@ def play_move(update, context):
                          'Did I distract you?',
                          'You Sire, I know are trying your best to beat me.\nBut I have already calculated all 3,62,880 game combinations.',
                          'Do you know that LEGO is the largest tire manufacturer in the world.']
-        game_board[computerPlays(game_board)] = O
+        context.user_data['GAME'][computerPlays(context.user_data['GAME'])] = O
         update.message.reply_text(random.choice(appreciations))
 
-        context.bot.send_chat_action(update.message.chat.id, action=ChatAction.TYPING)
+        context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(random.random())
 
         update.message.reply_text("My move is...😌🤳")
@@ -511,6 +525,7 @@ def main():
         fallbacks=[CommandHandler('cancel', cancel2), MessageHandler(Filters.regex(r'(cancel|quit)'), cancel2)]
     )
     dispatcher.add_handler(feedback_handler)
+    dispatcher.add_handler(CommandHandler('help', need_help))
     updater.start_polling()
     updater.idle()
 
