@@ -17,7 +17,7 @@ master_game_board = {'1': '‌1'.ljust(5), '2': '2'.center(4), '3': '3'.center(4
               '7': '7'.center(4), '8': '8'.center(4), '9': '9'.center(4)}
 #game_board = copy.copy(master_game_board)
 MY_CHAT_ID = removed
-GAME_END = False
+
 
 # ENable Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 def play(update, context):
 
     context.user_data['GAME'] = copy.copy(master_game_board)
+    context.user_data['GAME_END'] = False
     global chat_id
     chat_id = update.message.from_user.id
     if chat_id != MY_CHAT_ID:
@@ -64,7 +65,7 @@ def game_intro(update, context):
     update.message.reply_text("So, let's roll into it!.")
 
     context.bot.send_chat_action(update.message.chat.id, action=ChatAction.TYPING)
-    sleep(1.3)
+    sleep(0.7)
     update.message.reply_text(
         "You are playing as 🔴\n"
         "And I will play as 🟢",
@@ -159,8 +160,9 @@ def end_game(update, context):
             'Ik weird bug, but ever tried finding program flow errors in a 500 line program\n'
             'First time for me, so... I can\'t figure out where the problem lies.')
     update.message.reply_text('Bye!')
-    '''
+
     update.message.reply_text('....', reply_markup=ReplyKeyboardRemove())
+    '''
     reset_board(update, context)
 
     pass
@@ -195,8 +197,8 @@ def send_feedback(update, context):
 
 
     context.bot.send_message(MY_CHAT_ID,
-        f"#Feedback from: {update.effective_chat.first_name} @{update.effective_chat.username}\n`{update.message.text}`",
-        parse_mode=ParseMode.MARKDOWN)
+        f"#Feedback from: {update.effective_chat.first_name} @{update.effective_chat.username}\n<code>{update.message.text}</code>",
+        parse_mode=ParseMode.HTML)
     update.message.reply_text('Feedback sent!')
 
     return ConversationHandler.END
@@ -211,6 +213,9 @@ def need_help(update, context):
                 "Why is this happening you ask? Well because i violated the rule of programming that NEVER USE GLOBAL VARIABLES <s>(and python-telegram docs have a steep learning curve)</s>.\n\n"
                 "Try /cannot_play_again if that is your problem",
                 parse_mode=ParseMode.HTML )
+
+def end_conversation(update, context):
+    return ConversationHandler.END
 # -------------CORE GAME FUNCTIONS-----------
 # Checks the winning conditions function
 def hasWon(game_board):
@@ -254,8 +259,8 @@ def hasWon(game_board):
 
 # Has won's handler:
 def hasWon_handler(update, context, tie=False):
-    global GAME_END
-    if GAME_END:
+
+    if context.user_data['GAME_END']:
         return ConversationHandler.END
     chat_id_local = update.message.chat.id
     match_state = hasWon(context.user_data['GAME'])
@@ -269,7 +274,7 @@ def hasWon_handler(update, context, tie=False):
     else:
         tie = True
 
-    if tie:
+    if tie and match_state is None:
         logger.info(f"{update.effective_chat.first_name} ties")
         if chat_id != MY_CHAT_ID:
             context.bot.send_message(MY_CHAT_ID,
@@ -310,7 +315,7 @@ def hasWon_handler(update, context, tie=False):
         sleep(random.uniform(2,3))
         update.message.reply_text("But that DOESN'T change the fact, that I do not want my revenge.")
 
-        GAME_END = True
+        context.user_data['GAME_END'] = True
 
     elif match_state is None:
         return 'GET_INPUT'
@@ -331,9 +336,10 @@ def hasWon_handler(update, context, tie=False):
                 context.bot.send_message(MY_CHAT_ID,
                     f"{update.effective_chat.username}/{update.effective_chat.first_name} has lost.")
             update.message.reply_text("You LOSE human.")
-            context.bot.send_sticker(chat_id, 'CAACAgIAAxkBAAIFMF7GuCkZELExfQZSL0Tzt5GqMBzIAAIUAANOXNIpeTENMSnHY0MZBA')
+            context.bot.send_sticker(chat_id_local, 'CAACAgIAAxkBAAIFMF7GuCkZELExfQZSL0Tzt5GqMBzIAAIUAANOXNIpeTENMSnHY0MZBA')
 
-        GAME_END = True
+        context.user_data['GAME_END'] = True
+
 
     end_game(update, context)
     return ConversationHandler.END
@@ -341,8 +347,10 @@ def hasWon_handler(update, context, tie=False):
 
 
 def play_move(update, context):
-    global GAME_END
-    if GAME_END:
+
+    if context.user_data['GAME_END']:
+        end_conversation(update, context)
+        logger.info("RETURNED CONVERSATION END")
         return ConversationHandler.END
     chat_id_local = update.message.chat.id
     available_moves = [i if context.user_data['GAME'][i] not in [X, O] else 0 for i in context.user_data['GAME'].keys()]
@@ -383,8 +391,14 @@ def play_move(update, context):
 
         update.message.reply_text("My move is...😌🤳")
         displayBoard_inChat(update, context, start=False)
-        return hasWon_handler(update, context)
+        x = hasWon_handler(update, context)
+        if context.user_data['GAME_END']:
 
+            return ConversationHandler.END
+        else:
+            return x
+    elif match_state == ConversationHandler.END:
+        return match_state
 
 
 
@@ -552,7 +566,8 @@ def main():
         states= {
             'SEND_FEEDBACK':[MessageHandler(Filters.text & ~(Filters.regex('^(cancel|quit)')), send_feedback)]
         },
-        fallbacks=[CommandHandler('cancel', cancel2), MessageHandler(Filters.regex(r'(cancel|quit)'), cancel2)]
+        fallbacks=[CommandHandler('cancel', cancel2), MessageHandler(Filters.regex(r'(cancel|quit)'), cancel2)],
+        allow_reentry=True
     )
     dispatcher.add_handler(feedback_handler)
     dispatcher.add_handler(CommandHandler('help', need_help))
