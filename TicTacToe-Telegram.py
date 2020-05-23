@@ -134,7 +134,7 @@ def cancel(update, context):
     update.message.reply_text('Just hit me up with /play if you change your mind.')
     update.message.reply_text('Bye!')
 
-    reset_board()
+    reset_board(update, context)
     return ConversationHandler.END
 
 def cancel2(update, context):
@@ -146,7 +146,7 @@ def cancel2(update, context):
 
     update.message.reply_text('Bye!')
 
-    reset_board()
+    reset_board(update, context)
     return ConversationHandler.END
 
 def end_game(update, context):
@@ -203,7 +203,7 @@ def send_feedback(update, context):
 
 def error(update, context):
     logger.info('Update "%s" caused error "%s"', update, context.error)
-    update.message.reply_text("An Error Occured. Please inform my creator or try restarting the game by tapping /cancel and then /play")
+    update.message.reply_text("An Error Occured. Please inform my creator or try restarting the game by tapping /cancel and then /play.\nOR, try /help")
 
 def need_help(update, context):
     update.message.reply_text('Side Note from dev:  There is a low probability, but... if you notice your gameboard not responding or sending lost/tie messages early or not able to play... that means someone else is also using the playing.\n'
@@ -254,6 +254,9 @@ def hasWon(game_board):
 
 # Has won's handler:
 def hasWon_handler(update, context, tie=False):
+    global GAME_END
+    if GAME_END:
+        return ConversationHandler.END
     chat_id_local = update.message.chat.id
     match_state = hasWon(context.user_data['GAME'])
 
@@ -303,8 +306,10 @@ def hasWon_handler(update, context, tie=False):
         sleep(random.random()*2)
         update.message.reply_text("No, I wouldn't be doing that. My programming restricts me,\n"
             'From harming precious hoomans like you 🙂')
+        context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(random.uniform(2,3))
         update.message.reply_text("But that DOESN'T change the fact, that I do not want my revenge.")
+
         GAME_END = True
 
     elif match_state is None:
@@ -336,6 +341,9 @@ def hasWon_handler(update, context, tie=False):
 
 
 def play_move(update, context):
+    global GAME_END
+    if GAME_END:
+        return ConversationHandler.END
     chat_id_local = update.message.chat.id
     available_moves = [i if context.user_data['GAME'][i] not in [X, O] else 0 for i in context.user_data['GAME'].keys()]
     move = update.message.text
@@ -377,8 +385,8 @@ def play_move(update, context):
         displayBoard_inChat(update, context, start=False)
         return hasWon_handler(update, context)
 
-    if GAME_END:
-        return ConversationHandler.END
+
+
 
 
 
@@ -502,6 +510,11 @@ def computerPlays(game_board ):
 
 ## -------- Whew --------------
 
+def start(update, context):
+    update.message.reply_text(f"Hi {update.effective_chat.first_name}!\n"
+        "For now you can play TicTacToe with me by tapping /play\n"
+        "And don't forget to leave your /feedback to my creator 🙂\n"
+        "Hope you enjoy 😇.")
 
 # ------------ ENDS ----------------------
 
@@ -531,8 +544,9 @@ def main():
                     MessageHandler(Filters.regex(r'(Q|q)uit'), cancel)]
 
     )
+    dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(conv_handler)
-    dispatcher.add_error_handler(error)
+    #dispatcher.add_error_handler(error)
     feedback_handler = ConversationHandler(
         entry_points=[CommandHandler('feedback', feedback)],
         states= {
