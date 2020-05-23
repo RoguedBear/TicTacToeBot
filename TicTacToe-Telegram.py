@@ -17,6 +17,7 @@ master_game_board = {'1': '‌1'.ljust(5), '2': '2'.center(4), '3': '3'.center(4
               '7': '7'.center(4), '8': '8'.center(4), '9': '9'.center(4)}
 #game_board = copy.copy(master_game_board)
 MY_CHAT_ID = removed
+GAME_END = False
 
 # ENable Logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -158,8 +159,10 @@ def end_game(update, context):
             'Ik weird bug, but ever tried finding program flow errors in a 500 line program\n'
             'First time for me, so... I can\'t figure out where the problem lies.')
     update.message.reply_text('Bye!')
-    reset_board()
     '''
+    update.message.reply_text('....', reply_markup=ReplyKeyboardRemove())
+    reset_board(update, context)
+
     pass
 
 def end_game2(update, context):
@@ -176,14 +179,9 @@ def end_game2(update, context):
 
 
 
-def reset_board():
-    '''
-    global context.user_data['GAME']
-    context.user_data['GAME'] = {'1': '‌1'.ljust(6), '2': '2'.center(4), '3': '3'.center(4),
-                  '4': '4'.center(4), '5': '5'.center(4), '6': '6'.center(4),
-                  '7': '7'.center(4), '8': '8'.center(4), '9': '9'.center(4)}
-    '''
-    pass
+def reset_board(update, context):
+    context.user_data['GAME'].clear()
+
 def feedback(update, context):
     logger.info(f"{update.effective_chat.first_name} is sending feedback")
     update.message.reply_text("You may enter your feedback if you have one\. \n"
@@ -274,7 +272,7 @@ def hasWon_handler(update, context, tie=False):
             context.bot.send_message(MY_CHAT_ID,
                 f"{update.effective_chat.username}/{update.effective_chat.first_name} has tied")
 
-        update.message.reply_text("It's a tie!")
+        update.message.reply_text("It's a tie!", reply_markup=ReplyKeyboardRemove())
         update.message.reply_text(f"Well played {update.effective_chat.first_name}!")
         context.bot.send_chat_action(chat_id_local, action=ChatAction.TYPING)
         sleep(random.random()*1.5)
@@ -307,7 +305,7 @@ def hasWon_handler(update, context, tie=False):
             'From harming precious hoomans like you 🙂')
         sleep(random.uniform(2,3))
         update.message.reply_text("But that DOESN'T change the fact, that I do not want my revenge.")
-
+        GAME_END = True
 
     elif match_state is None:
         return 'GET_INPUT'
@@ -330,6 +328,7 @@ def hasWon_handler(update, context, tie=False):
             update.message.reply_text("You LOSE human.")
             context.bot.send_sticker(chat_id, 'CAACAgIAAxkBAAIFMF7GuCkZELExfQZSL0Tzt5GqMBzIAAIUAANOXNIpeTENMSnHY0MZBA')
 
+        GAME_END = True
 
     end_game(update, context)
     return ConversationHandler.END
@@ -363,7 +362,7 @@ def play_move(update, context):
         appreciations = ['Hmm...', 'Nice One 😉', 'Nice move :)',
                          'That\'s hard', '🧐', '🤔',
                          'Are you Bored? I am.\n\nBut I have to play so...',
-                         'Game apart, do you know the tale of Darth Plaguis The Wise??',
+                         'Game apart, do you know the tale of Darth Plagueis The Wise??',
                          'This Bot is Sponsored by Raid Sha-💥 🥊\nOK OK master don\'t hit me\n\nNot Sponsored',
                          'Did I distract you?',
                          'You Sire, I know are trying your best to beat me.\nBut I have already calculated all 3,62,880 game combinations.',
@@ -378,6 +377,8 @@ def play_move(update, context):
         displayBoard_inChat(update, context, start=False)
         return hasWon_handler(update, context)
 
+    if GAME_END:
+        return ConversationHandler.END
 
 
 
@@ -506,7 +507,7 @@ def computerPlays(game_board ):
 
 def main():
     logger.info("Logging Started")
-    updater = Updater(token='REMOVED', use_context=True)
+    updater = Updater(token='removed', use_context=True)
     dispatcher = updater.dispatcher
 
     conv_handler = ConversationHandler(
